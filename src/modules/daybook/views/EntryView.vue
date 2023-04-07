@@ -8,7 +8,11 @@
       </div>
 
       <div>
-        <button class="btn btn-danger mx-2">
+        <button
+          class="btn btn-danger mx-2"
+          v-if="entry.id"
+          @click="DeleteEntry(entry.id)"
+        >
           Borrar
           <i class="fa fa-trash-alt"></i>
         </button>
@@ -32,12 +36,13 @@
     />
   </template>
 
-  <Fab icon="fa-save" />
+  <Fab icon="fa-save" @on:click="saveEntry" />
 </template>
 
 <script>
 import { defineAsyncComponent } from "vue";
-import { mapGetters } from "vuex";
+import { mapGetters, mapActions } from "vuex";
+import Swal from "sweetalert2";
 import getDayMonthYear from "../helpers/getDayMonthYear";
 
 export default {
@@ -73,12 +78,64 @@ export default {
     };
   },
   methods: {
-    loadEntry() {
-      const entry = this.getEntryById(this.id);
+    ...mapActions("journal", [
+      "updateEntries",
+      "createEntries",
+      "deleteEntries",
+    ]),
 
-      if (!entry) return this.$router.push({ name: "no-entry" });
+    loadEntry() {
+      let entry;
+
+      if (this.id === "new") {
+        entry = {
+          text: "",
+          date: new Date().getTime(),
+        };
+      } else {
+        entry = this.getEntryById(this.id);
+
+        if (!entry) return this.$router.push({ name: "no-entry" });
+      }
 
       this.entry = entry;
+    },
+    async saveEntry() {
+      new Swal({
+        title: "Espere por favor",
+        allowOutsideClick: false,
+      });
+      Swal.showLoading();
+
+      if (this.entry.id) {
+        await this.updateEntries(this.entry);
+      } else {
+        const id = await this.createEntries(this.entry);
+
+        this.$router.push({ name: "entry", params: { id } });
+      }
+
+      Swal.fire("Guardado", "Entrada registrada correctamente", "success");
+    },
+    async DeleteEntry(id) {
+      const { isConfirmed } = await Swal.fire({
+        title: "¿Está seguro?",
+        text: "No se podrá revertir los cambios",
+        showDenyButton: true,
+        confirmButtonText: "Si, estoy seguro",
+      });
+
+      if (isConfirmed) {
+        new Swal({
+          title: "Espere por favor",
+          allowOutsideClick: false,
+        });
+        Swal.showLoading();
+        await this.deleteEntries(id);
+        this.$router.push({ name: "no-entry" });
+
+        Swal.fire("Eliminado", "", "success");
+      }
     },
   },
   created() {
